@@ -65,7 +65,7 @@ Panel {
     deleteTarget = null
     if (!t || delProc.running) return
     // Also drops the path from the user's added-models list if it was there.
-    delProc.command = ["bash", "-c", 'rm -f -- "$1"; "$2" rmpath "$1"', "x", t.path, dir + "setmodel.sh"]
+    delProc.command = ["bash", "-c", '[[ ${1,,} == *.gguf && -f $1 ]] && rm -f -- "$1"; "$2" rmpath "$1"', "x", t.path, dir + "setmodel.sh"]
     delProc.running = true
   }
 

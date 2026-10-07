@@ -5,7 +5,9 @@
 cfg=$HOME/.config/omallama
 f=$cfg/env list=$cfg/models.list
 mkdir -p "$cfg"; touch "$f" "$list"
-set_kv() { grep -v "^$1=" "$f" > "$f.tmp"; echo "$1=$2" >> "$f.tmp"; mv "$f.tmp" "$f"; }
+# Values end up in line-based files (env, models.list): refuse anything that could add a line.
+for a in "$@"; do [[ $a == *[[:cntrl:]]* ]] && { echo "err: control characters are not allowed"; exit 0; }; done
+set_kv() { [[ $1 =~ ^LLM_[A-Z]+$ ]] || { echo "err: bad key"; return; }; grep -v "^$1=" "$f" > "$f.tmp"; echo "$1=$2" >> "$f.tmp"; mv "$f.tmp" "$f"; }
 restart() { systemctl --user is-active --quiet omallama && systemctl --user restart omallama; }
 case $1 in
   model) set_kv LLM_MODEL "$2"; set_kv LLM_ALIAS "$(basename "$2" .gguf)"; restart ;;
