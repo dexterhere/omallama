@@ -26,7 +26,8 @@ set_default LLM_PORT 8080
 set_default LLM_EXTRA ""
 set_default LLM_AUTOSTOP 0
 mem=$(awk '/^MemTotal/{print int($2*0.75/1024)}' /proc/meminfo)
-cat > "$HOME/.config/systemd/user/omallama.service" <<UNIT
+unit=$HOME/.config/systemd/user/omallama.service
+cat > "$unit.new" <<UNIT
 [Unit]
 Description=Omallama: llama.cpp server
 
@@ -40,5 +41,8 @@ MemoryMax=${mem}M
 [Install]
 WantedBy=default.target
 UNIT
+# Keep a copy if the user edited the service by hand, rather than overwriting it silently.
+[ -f "$unit" ] && ! cmp -s "$unit" "$unit.new" && cp "$unit" "$unit.bak"
+mv "$unit.new" "$unit"
 systemctl --user daemon-reload
 echo "ok: service installed for $bin"
