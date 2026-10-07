@@ -6,6 +6,49 @@ Run and monitor a local [llama.cpp](https://github.com/ggml-org/llama.cpp) serve
 
 Click the chip icon in the bar to open a panel where you can start and stop the server, watch the GPU, memory and tokens per second, and manage your local GGUF models. Stopping the server when you are not coding gives the VRAM and RAM straight back.
 
+## Quick start
+
+Omallama controls a local `llama-server`, so it needs two things that are not part of the plugin: **llama.cpp** and **a model**. You do those once. The panel's setup screen does the rest (the background service) and walks you through each step.
+
+**1. Install the plugin and put it on the bar**
+
+```bash
+omarchy plugin add https://github.com/dexterhere/omallama.git --enable
+omarchy bar put dexterhere.omallama
+```
+
+Plugins run unsandboxed, so read the code first. See [Install](#install).
+
+**2. Install llama.cpp** (skip this if you already have `llama-server`; it is found in your `PATH`, `~/.local/bin`, `~/llama.cpp/build/bin`, `~/Work/llama.cpp/build/bin`, `/usr/local/bin` and a few other places)
+
+NVIDIA:
+
+```bash
+sudo pacman -S --needed cuda cmake git && export NVCC_CCBIN=${NVCC_CCBIN:-/usr/bin/g++-15} PATH=$PATH:/opt/cuda/bin && git clone --depth 1 https://github.com/ggml-org/llama.cpp ~/llama.cpp && cd ~/llama.cpp && cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=native -DCMAKE_BUILD_TYPE=Release && cmake --build build -j4 --target llama-server
+```
+
+AMD, Intel or integrated graphics (Vulkan):
+
+```bash
+sudo pacman -S --needed vulkan-headers vulkan-icd-loader shaderc cmake git && git clone --depth 1 https://github.com/ggml-org/llama.cpp ~/llama.cpp && cd ~/llama.cpp && cmake -B build -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release && cmake --build build -j4 --target llama-server
+```
+
+No GPU (CPU only):
+
+```bash
+sudo pacman -S --needed cmake git && git clone --depth 1 https://github.com/ggml-org/llama.cpp ~/llama.cpp && cd ~/llama.cpp && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j4 --target llama-server
+```
+
+**3. Get a model.** Any `.gguf` works. Qwen2.5-Coder 7B (4.4 GB) suits a 6 GB GPU; the setup screen suggests a size that fits your memory:
+
+```bash
+mkdir -p ~/models && curl -L -C - -o ~/models/qwen2.5-coder-7b-instruct-q4_k_m.gguf https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf
+```
+
+Or add a file you already have from the panel with the folder icon.
+
+**4. Open the panel.** Click the chip icon in the bar. The setup screen checks each step and shows what is missing. Click **Install service**, then the power button to start the server. It listens on `http://localhost:8080/v1`.
+
 ## Features
 
 - **Start, stop and restart** the server from the bar. Middle-click the icon to toggle it without opening the panel.
