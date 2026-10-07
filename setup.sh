@@ -1,6 +1,14 @@
 #!/bin/bash
-# Installs (or repairs) the omallama systemd user service around the llama-server found on this machine.
+# usage: setup.sh            install or repair the omallama systemd user service
+#        setup.sh remove     stop and delete the service (settings and models are kept)
 . "$(dirname "$0")/lib.sh"
+if [ "$1" = remove ]; then
+  systemctl --user disable --now omallama 2>/dev/null
+  rm -f "$HOME/.config/systemd/user/omallama.service"
+  systemctl --user daemon-reload
+  echo "ok: service removed (settings stay in ~/.config/omallama)"
+  exit 0
+fi
 bin=$(find_bin)
 [ -n "$bin" ] || { echo "err: llama-server not found"; exit 0; }
 detect_gpu

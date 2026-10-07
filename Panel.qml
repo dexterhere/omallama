@@ -44,6 +44,7 @@ Panel {
 
   readonly property string dir: Qt.resolvedUrl(".").toString().replace("file://", "")
   property var deleteTarget: null
+  property bool uninstallAsk: false
   readonly property var ctxOptions: [4096, 8192, 16384]
 
   function setModel(path) {
@@ -86,6 +87,15 @@ Panel {
   function runSetup() {
     if (setupProc.running) return
     addFeedback = "Installing service…"
+    setupProc.command = ["bash", dir + "setup.sh"]
+    setupProc.running = true
+  }
+
+  function removeService() {
+    uninstallAsk = false
+    if (setupProc.running) return
+    addFeedback = "Removing service…"
+    setupProc.command = ["bash", dir + "setup.sh", "remove"]
     setupProc.running = true
   }
 
@@ -307,11 +317,25 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
       blocked: modelSearch.activeFocus || pathField.activeFocus || portField.activeFocus || extraField.activeFocus
-      onCloseRequested: { if (root.deleteTarget) root.deleteTarget = null; else if (root.settingsOpen) root.settingsOpen = false; else root.close() }
+      onCloseRequested: { if (root.uninstallAsk) root.uninstallAsk = false; else if (root.deleteTarget) root.deleteTarget = null; else if (root.settingsOpen) root.settingsOpen = false; else root.close() }
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(t) { if (t === "u") root.refresh() }
 
-      Keys.onPressed: function(event) { if (deleteConfirm.handleKey(event)) event.accepted = true }
+      Keys.onPressed: function(event) { if (uninstallConfirm.handleKey(event) || deleteConfirm.handleKey(event)) event.accepted = true }
+
+      ConfirmDialog {
+        id: uninstallConfirm
+        anchors.fill: parent
+        z: 11
+        opened: root.uninstallAsk
+        message: "Stop and remove the Omallama service?\n\nYour models and settings are kept. To remove the plugin afterwards run:\nomarchy plugin remove dexterhere.omallama"
+        confirmText: "Remove"
+        selectedIndex: 0
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        onCanceled: root.uninstallAsk = false
+        onConfirmed: root.removeService()
+      }
 
       ConfirmDialog {
         id: deleteConfirm
@@ -764,6 +788,7 @@ Panel {
             Pill { label: "View logs"; onClicked: root.viewLogs() }
             Pill { label: "Setup check"; onClicked: { root.setupForced = true; root.checkSetup() } }
             Pill { label: "Reinstall service"; onClicked: root.runSetup() }
+            Pill { visible: root.doctor.unitInstalled; label: "Uninstall service"; onClicked: root.uninstallAsk = true }
             Pill { label: "Models folder"; onClicked: Quickshell.execDetached(["xdg-open", root.home + "/models"]) }
             Pill { label: "Config folder"; onClicked: Quickshell.execDetached(["xdg-open", root.home + "/.config/omallama"]) }
           }
