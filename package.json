@@ -1,6 +1,6 @@
 {
   "name": "omallama",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "Omarchy bar plugin for running and monitoring a local llama.cpp server",
   "license": "MIT",
