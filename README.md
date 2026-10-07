@@ -23,7 +23,18 @@ Click the chip icon in the bar to open a panel where you can start and stop the 
 - A `llama-server` binary from llama.cpp. If you do not have one, the onboarding copies the right build command for your GPU.
 - `systemd` user services, `curl`, `bash`.
 
-Optional, and the onboarding tells you which are missing: `wl-clipboard` (copy buttons), `libnotify` (idle-stop notice), `python-gobject` or `zenity` (file chooser), `xdg-utils`, `pciutils` (GPU name).
+For GPU stats on NVIDIA you need the driver utilities (`nvidia-smi`, package `nvidia-utils`). AMD and Intel stats are read from `/sys`, so nothing extra is needed.
+
+Optional, and the onboarding tells you which are missing:
+
+| Tool (Arch package) | Used for |
+| --- | --- |
+| `wl-clipboard` | copy and paste buttons |
+| `libnotify` | the "stopped after idle" notice |
+| `python-gobject` (or `zenity` / `kdialog`) | the file chooser |
+| `xdg-utils`, `nautilus` | opening folders and showing a model in the file manager (Nautilus selects the file; other managers just open the folder) |
+| `pciutils` | the GPU name |
+| `journalctl` (systemd), Omarchy's `omarchy-launch-tui` | the "View logs" button |
 
 ## Install
 
@@ -51,7 +62,7 @@ Open the panel. If anything is missing you land on the setup screen:
 | A model | at least one `.gguf`, and an active one | **Add from files**, or **Copy download** for a size that fits your memory |
 | Helper tools | clipboard, notifications, file chooser | **Copy install command** |
 
-The service file and its settings are generated for you in `~/.config/systemd/user/omallama.service` and `~/.config/omallama/env`.
+The service file and its settings are generated for you in `~/.config/systemd/user/omallama.service` and `~/.config/omallama/env`. Omallama only writes its own files, and only when you click **Install service** or **Reinstall service**. If you edited the service file by hand, the previous copy is saved as `omallama.service.bak` before it is replaced. It also creates an empty `~/models` folder if you have none.
 
 ## Building llama.cpp
 
