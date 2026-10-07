@@ -1,0 +1,10 @@
+{
+  "name": "omallama",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Omarchy bar plugin for running and monitoring a local llama.cpp server",
+  "license": "MIT",
+  "scripts": {
+    "test": "node tests/run.js && bash tests/gpu.test.sh"
+  }
+}
