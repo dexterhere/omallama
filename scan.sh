@@ -16,12 +16,16 @@ candidates() {
   find "$HOME" -xdev -maxdepth 3 \( -name '.*' -o -name node_modules -o -name target -o -name build -o -name venv \) -prune \
     -o -type f -iname '*.gguf' -size +20M -print0 2>/dev/null
   while IFS= read -r p; do
+    # Absolute paths only: a relative entry such as "-delete" would be parsed by find as an option.
+    [[ $p == /* ]] || continue
     if [ -d "$p" ]; then find -L "$p" -maxdepth 8 -type f -iname '*.gguf' -print0 2>/dev/null
     elif [ -f "$p" ]; then printf '%s\0' "$p"; fi
   done < "$list" 2>/dev/null
 }
-candidates | xargs -0 -r realpath -z 2>/dev/null | sort -zu |
+candidates | xargs -0 -r realpath -z -- 2>/dev/null | sort -zu |
   while IFS= read -r -d '' f; do
+    # Output is one "bytes|path" record per line, so a path with a newline could forge records.
+    [[ $f == *[[:cntrl:]]* ]] && continue
     b=${f##*/}
     case ${b,,} in *mmproj*) continue ;; esac
     if [[ $b =~ -([0-9]{5})-of-[0-9]{5}\.gguf$ && ${BASH_REMATCH[1]} != 00001 ]]; then continue; fi
