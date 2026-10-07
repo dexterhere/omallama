@@ -97,11 +97,31 @@ omarchy-shell dexterhere.omallama setup          # show or hide the setup screen
 | `Panel.qml` | bar icon and panel |
 | `Model.js` | parsing and formatting, covered by `tests/run.js` |
 | `sample.sh` | one sample of GPU, memory and server state |
-| `doctor.sh`, `setup.sh` | environment check and service installer |
+| `doctor.sh`, `setup.sh` | environment check, service installer and remover |
 | `setmodel.sh` | writes settings and the added-models list |
 | `scan.sh` | finds models on the machine |
 | `browse.sh`, `pick.py` | file chooser for adding models |
 | `lib.sh` | binary lookup and GPU detection |
+
+## Uninstall
+
+Removing a plugin cannot run cleanup code, so stop the service first:
+
+1. Open the panel, then Settings → Tools → **Uninstall service**. It stops the server and deletes the `omallama` systemd user service. Your models and settings are kept.
+2. Remove the plugin:
+
+```bash
+omarchy plugin remove dexterhere.omallama
+```
+
+Everything Omallama created lives in two places. To erase all of it, including your saved settings and added-models list (your model files are never touched):
+
+```bash
+systemctl --user disable --now omallama
+rm -f ~/.config/systemd/user/omallama.service
+rm -rf ~/.config/omallama
+systemctl --user daemon-reload
+```
 
 ## Development
 
@@ -109,7 +129,7 @@ omarchy-shell dexterhere.omallama setup          # show or hide the setup screen
 npm test
 ```
 
-runs the model tests and the GPU detection tests, which use fake sysfs trees for Intel, AMD, NVIDIA and no GPU. The AMD and Intel paths are tested that way; they have not been run on that hardware yet. Reports from real machines are welcome.
+runs the model tests, the GPU detection tests (fake sysfs trees for Intel, AMD, NVIDIA and no GPU), hostile-path tests for the scanner and settings, and the service removal test. The AMD and Intel paths are tested that way; they have not been run on that hardware yet. Reports from real machines are welcome.
 
 After editing QML, `omarchy restart shell` makes the change show reliably.
 
