@@ -33,7 +33,9 @@ if [ "${pid:-0}" != 0 ]; then
   curl -s -m 1 "localhost:${port:-8080}/health" | grep -q '"ok"' && echo "health=ok"
   curl -s -m 1 "localhost:${port:-8080}/metrics" | awk '/^llamacpp:predicted_tokens_seconds /{printf "tps=%.1f\n",$2} /^llamacpp:requests_processing /{printf "busy=%d\n",$2}'
 fi
-echo "active_model=$(grep '^LLM_MODEL=' "$envf" 2>/dev/null | cut -d= -f2-)"
+model=$(grep '^LLM_MODEL=' "$envf" 2>/dev/null | cut -d= -f2-)
+[ "$(grep '^LLM_MODEL_FLAG=' "$envf" 2>/dev/null | cut -d= -f2-)" = -hf ] && model=hf:$model
+echo "active_model=$model"
 echo "ctx=$(grep '^LLM_CTX=' "$envf" 2>/dev/null | cut -d= -f2)"
 [ "${pid:-0}" != 0 ] && echo "uptime=$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')"
 for k in PORT NGL KV EXTRA AUTOSTOP; do echo "cfg_$k=$(grep "^LLM_$k=" "$envf" 2>/dev/null | cut -d= -f2-)"; done

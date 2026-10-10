@@ -45,7 +45,7 @@ Panel {
   readonly property string dir: Qt.resolvedUrl(".").toString().replace("file://", "")
   property var deleteTarget: null
   property bool uninstallAsk: false
-  readonly property var ctxOptions: [4096, 8192, 16384]
+  readonly property var ctxOptions: Model.CTX_OPTIONS
 
   function setModel(path) {
     if (path === sample.activeModel || setProc.running) return
@@ -59,7 +59,7 @@ Panel {
     setProc.running = true
   }
 
-  function askDelete(info) { if (info && info.path !== sample.activeModel) deleteTarget = info }
+  function askDelete(info) { if (info && info.deletable && info.path !== sample.activeModel) deleteTarget = info }
 
   function confirmDelete() {
     var t = deleteTarget
@@ -185,6 +185,8 @@ Panel {
       var s = Model.parseSample(out.text)
       var addedChanged = JSON.stringify(s.added) !== JSON.stringify(root.sample.added)
       root.sample = s
+      if (extraField.dirty && s.extraArgs === extraField.text.trim()) extraField.dirty = false
+      if (portField.dirty && String(s.port) === portField.text) portField.dirty = false
       root.trackIdle(s)
       if (addedChanged) root.scanModels()
       root.gpuHist = Model.push(root.gpuHist, s.gpuUtil)
@@ -476,20 +478,19 @@ Panel {
 
           PanelSeparator { foreground: root.foreground }
 
-          Row {
+          Column {
             width: parent.width
             spacing: Style.space(8)
             Text {
-              anchors.verticalCenter: parent.verticalCenter
-              width: parent.width - ctxRow.width - Style.space(8)
+              width: parent.width
               text: "CONTEXT WINDOW"
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
               font.letterSpacing: 1
             }
-            Row {
-              id: ctxRow
+            Flow {
+              width: parent.width
               spacing: Style.space(6)
               Repeater {
                 model: root.ctxOptions
@@ -726,7 +727,9 @@ Panel {
               id: portField
               width: Style.space(90)
               foreground: root.foreground
-              text: String(root.sample.port)
+              property bool dirty: false
+              onTextEdited: dirty = true
+              Binding { target: portField; property: "text"; value: String(root.sample.port); when: !portField.activeFocus && !portField.dirty; restoreMode: Binding.RestoreNone }
               color: Model.validPort(text) ? root.foreground : Color.urgent
               onAccepted: if (Model.validPort(text)) root.setKey("LLM_PORT", text)
             }
@@ -734,12 +737,14 @@ Panel {
 
           SettingRow {
             label: "Extra arguments"
-            hint: "Passed to llama-server, e.g. --threads 6 --parallel 2"
+            hint: "Press Enter to apply, e.g. --threads 6 --parallel 2"
             TextField {
               id: extraField
               width: Style.space(220)
               foreground: root.foreground
-              text: root.sample.extraArgs
+              property bool dirty: false
+              onTextEdited: dirty = true
+              Binding { target: extraField; property: "text"; value: root.sample.extraArgs; when: !extraField.activeFocus && !extraField.dirty; restoreMode: Binding.RestoreNone }
               placeholderText: "none"
               onAccepted: root.setKey("LLM_EXTRA", text.trim())
             }
@@ -785,6 +790,7 @@ Panel {
             spacing: Style.space(8)
             Pill { label: "Copy endpoint"; onClicked: root.copyText(root.endpoint) }
             Pill { label: "Copy Zed config"; onClicked: root.copyText(Model.zedConfig(root.sample.port, root.activeAlias)) }
+            Pill { label: "Copy Pi config"; onClicked: root.copyText(Model.piConfig(root.sample.port, root.activeAlias, root.sample.ctx)) }
             Pill { label: "View logs"; onClicked: root.viewLogs() }
             Pill { label: "Setup check"; onClicked: { root.setupForced = true; root.checkSetup() } }
             Pill { label: "Reinstall service"; onClicked: root.runSetup() }
@@ -823,7 +829,8 @@ Panel {
             title: "llama.cpp server"
             detail: root.doctor.bin !== ""
               ? root.doctor.bin + (root.doctor.binVersion !== "" ? "  ·  " + root.doctor.binVersion : "")
-              : "llama-server was not found on this machine."
+              : "llama or llama-server was not found on this machine."
+            Pill { visible: root.doctor.bin === ""; label: "Copy install command"; onClicked: root.copyText(Model.INSTALL_COMMAND) }
             Pill { visible: root.doctor.bin === ""; label: "Copy build command"; onClicked: root.copyText(Model.buildCommand(root.doctor.gpuKind)) }
           }
 
@@ -833,7 +840,12 @@ Panel {
             detail: Model.deviceSummary(root.doctor)
             Pill {
               visible: root.doctor.bin !== "" && !Model.accelerated(root.doctor)
-              label: "Copy rebuild command"
+              label: "Copy install command"
+              onClicked: root.copyText(Model.INSTALL_COMMAND)
+            }
+            Pill {
+              visible: root.doctor.bin !== "" && !Model.accelerated(root.doctor)
+              label: "Copy build command"
               onClicked: root.copyText(Model.buildCommand(root.doctor.gpuKind))
             }
           }
@@ -1032,7 +1044,7 @@ Panel {
         elide: Text.ElideRight
       }
       Text {
-        text: [row.info.params, row.info.quant, Model.gb(row.info.sizeMb), row.info.source].filter(function(x) { return x }).join("  ·  ")
+        text: [row.info.params, row.info.quant, row.info.sizeMb ? Model.gb(row.info.sizeMb) : "", row.info.source].filter(function(x) { return x }).join("  ·  ")
         color: root.dim
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
@@ -1055,6 +1067,7 @@ Panel {
 
       PanelActionButton {
         iconText: Model.Glyph.folderOpen
+        visible: !row.info.cached
         tooltipText: "Show in file manager"
         foreground: root.foreground
         hoverColor: Color.accent
@@ -1064,6 +1077,7 @@ Panel {
 
       PanelActionButton {
         iconText: Model.Glyph.trash
+        visible: row.info.deletable === true
         enabled: !row.active
         opacity: row.active ? 0.3 : 1
         tooltipText: row.active ? "Active model — switch to another first" : "Delete from disk"

@@ -10,7 +10,9 @@ if [ "$1" = remove ]; then
   exit 0
 fi
 bin=$(find_bin)
-[ -n "$bin" ] || { echo "err: llama-server not found"; exit 0; }
+[ -n "$bin" ] || { echo "err: llama or llama-server not found"; exit 0; }
+serve=
+[ "${bin##*/}" = llama ] && serve=" serve"
 detect_gpu
 mkdir -p "$cfg" "$HOME/models" "$HOME/.config/systemd/user"
 touch "$cfg/env" "$cfg/models.list"
@@ -18,6 +20,7 @@ set_default() { grep -q "^$1=" "$cfg/env" || echo "$1=$2" >> "$cfg/env"; }
 sed -i '/^LLM_BIN=/d' "$cfg/env"; echo "LLM_BIN=$bin" >> "$cfg/env"
 first=$(find "$HOME/models" -maxdepth 2 -iname '*.gguf' 2>/dev/null | head -1)
 set_default LLM_MODEL "$first"
+set_default LLM_MODEL_FLAG -m
 set_default LLM_ALIAS "$(basename "${first:-model}" .gguf)"
 set_default LLM_CTX 8192
 set_default LLM_NGL "$([ "$GPU_KIND" = none ] && echo 0 || echo 99)"
@@ -33,7 +36,7 @@ Description=Omallama: llama.cpp server
 
 [Service]
 EnvironmentFile=%h/.config/omallama/env
-ExecStart=$bin -m \${LLM_MODEL} -ngl \${LLM_NGL} -c \${LLM_CTX} -fa on \$LLM_KV --port \${LLM_PORT} --alias \${LLM_ALIAS} --metrics \$LLM_EXTRA
+ExecStart=$bin$serve \${LLM_MODEL_FLAG} \${LLM_MODEL} -ngl \${LLM_NGL} -c \${LLM_CTX} -fa on \$LLM_KV --port \${LLM_PORT} --alias \${LLM_ALIAS} --metrics \$LLM_EXTRA
 Restart=no
 # Keep the desktop out of swap if the model ever balloons
 MemoryMax=${mem}M

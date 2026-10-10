@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage: setmodel.sh model <path> | ctx <n> | set <KEY> <value> [norestart]
+# usage: setmodel.sh model <path|hf:repo:quant> | ctx <n> | set <KEY> <value> [norestart]
 #        setmodel.sh addpath <file|dir> | rmpath <file|dir> | login on|off
 # Settings live in ~/.config/omallama/env (read by omallama.service).
 cfg=$HOME/.config/omallama
@@ -7,10 +7,19 @@ f=$cfg/env list=$cfg/models.list
 mkdir -p "$cfg"; touch "$f" "$list"
 # Values end up in line-based files (env, models.list): refuse anything that could add a line.
 for a in "$@"; do [[ $a == *[[:cntrl:]]* ]] && { echo "err: control characters are not allowed"; exit 0; }; done
-set_kv() { [[ $1 =~ ^LLM_[A-Z]+$ ]] || { echo "err: bad key"; return; }; grep -v "^$1=" "$f" > "$f.tmp"; echo "$1=$2" >> "$f.tmp"; mv "$f.tmp" "$f"; }
+set_kv() { [[ $1 =~ ^LLM_[A-Z_]+$ ]] || { echo "err: bad key"; return; }; grep -v "^$1=" "$f" > "$f.tmp"; echo "$1=$2" >> "$f.tmp"; mv "$f.tmp" "$f"; }
 restart() { systemctl --user is-active --quiet omallama && systemctl --user restart omallama; }
 case $1 in
-  model) set_kv LLM_MODEL "$2"; set_kv LLM_ALIAS "$(basename "$2" .gguf)"; restart ;;
+  model)
+    if [[ $2 == hf:* ]]; then
+      model=${2#hf:}
+      [[ $model =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(:[A-Za-z0-9_.-]+)?$ ]] || { echo "err: bad cached model"; exit 0; }
+      set_kv LLM_MODEL_FLAG -hf
+    else
+      model=$2
+      set_kv LLM_MODEL_FLAG -m
+    fi
+    set_kv LLM_MODEL "$model"; set_kv LLM_ALIAS "$(basename "$model" .gguf)"; restart ;;
   ctx) set_kv LLM_CTX "$2"; restart ;;
   set) set_kv "$2" "$3"; [ "$4" = norestart ] || restart ;;
   addpath)

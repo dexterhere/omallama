@@ -1,17 +1,19 @@
 # Shared helpers, sourced by sample.sh, doctor.sh and setup.sh.
 cfg=$HOME/.config/omallama
 
-# Path of a llama-server binary: remembered one, PATH, usual build dirs, then a shallow search.
+# Prefer the llama dispatcher, with standalone llama-server as a fallback.
 find_bin() {
   local c
-  for c in "$(grep -m1 '^LLM_BIN=' "$cfg/env" 2>/dev/null | cut -d= -f2-)" "$(command -v llama-server)" \
+  for c in "$(command -v llama)" "$HOME/.local/bin/llama" "$HOME/llama.cpp/build/bin/llama" \
+    "$HOME/Work/llama.cpp/build/bin/llama" "$HOME/src/llama.cpp/build/bin/llama" /usr/local/bin/llama /opt/llama.cpp/bin/llama \
+    "$(grep -m1 '^LLM_BIN=' "$cfg/env" 2>/dev/null | cut -d= -f2-)" "$(command -v llama-server)" \
     "$HOME/.local/bin/llama-server" "$HOME/llama.cpp/build/bin/llama-server" \
     "$HOME/Work/llama.cpp/build/bin/llama-server" "$HOME/src/llama.cpp/build/bin/llama-server" \
     /usr/local/bin/llama-server /opt/llama.cpp/bin/llama-server; do
     [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return; }
   done
   find "$HOME" -xdev -maxdepth 5 \( -name node_modules -o -name .git -o -name .cache -o -name .npm -o -name .cargo -o -name .rustup -o -name target \) -prune \
-    -o -name llama-server -type f -perm -u+x -print -quit 2>/dev/null
+    -o \( -name llama -o -name llama-server \) -type f -perm -u+x -print -quit 2>/dev/null
 }
 
 # Picks the best GPU from sysfs: sets GPU_KIND (nvidia|amd|intel|none), GPU_INT (1 = integrated), GPU_CARD.

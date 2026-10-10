@@ -8,7 +8,7 @@ Click the chip icon in the bar to open a panel where you can start and stop the 
 
 ## Quick start
 
-Omallama controls a local `llama-server`, so it needs two things that are not part of the plugin: **llama.cpp** and **a model**. You do those once. The panel's setup screen does the rest (the background service) and walks you through each step.
+Omallama controls a local `llama serve` (or standalone `llama-server`), so it needs two things that are not part of the plugin: **llama.cpp** and **a model**. You do those once. The panel's setup screen does the rest (the background service) and walks you through each step.
 
 **1. Install the plugin and put it on the bar**
 
@@ -19,25 +19,15 @@ omarchy bar put dexterhere.omallama
 
 Plugins run unsandboxed, so read the code first. See [Install](#install).
 
-**2. Install llama.cpp** (skip this if you already have `llama-server`; it is found in your `PATH`, `~/.local/bin`, `~/llama.cpp/build/bin`, `~/Work/llama.cpp/build/bin`, `/usr/local/bin` and a few other places)
+**2. Install llama.cpp** (skip this if you already have `llama` or `llama-server`; it is found in your `PATH`, `~/.local/bin`, `~/llama.cpp/build/bin`, `~/Work/llama.cpp/build/bin`, `/usr/local/bin` and a few other places)
 
-NVIDIA:
-
-```bash
-sudo pacman -S --needed cuda cmake git && export NVCC_CCBIN=${NVCC_CCBIN:-/usr/bin/g++-15} PATH=$PATH:/opt/cuda/bin && git clone --depth 1 https://github.com/ggml-org/llama.cpp ~/llama.cpp && cd ~/llama.cpp && cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=native -DCMAKE_BUILD_TYPE=Release && cmake --build build -j4 --target llama-server
-```
-
-AMD, Intel or integrated graphics (Vulkan):
+Use the [llama.app installer](https://llama.app/docs/installation). It auto-detects your platform and GPU and installs a suitable binary:
 
 ```bash
-sudo pacman -S --needed vulkan-headers vulkan-icd-loader shaderc cmake git && git clone --depth 1 https://github.com/ggml-org/llama.cpp ~/llama.cpp && cd ~/llama.cpp && cmake -B build -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release && cmake --build build -j4 --target llama-server
+curl -LsSf https://llama.app/install.sh | sh
 ```
 
-No GPU (CPU only):
-
-```bash
-sudo pacman -S --needed cmake git && git clone --depth 1 https://github.com/ggml-org/llama.cpp ~/llama.cpp && cd ~/llama.cpp && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j4 --target llama-server
-```
+Verify with `llama cli --version`. The setup screen's **Copy install command** copies this same command. Alternatively, use **Copy build command** or the [source-build instructions](#building-llamacpp) below.
 
 **3. Get a model.** Any `.gguf` works. Qwen2.5-Coder 7B (4.4 GB) suits a 6 GB GPU; the setup screen suggests a size that fits your memory:
 
@@ -56,14 +46,14 @@ Or add a file you already have from the panel with the folder icon.
 - **Model manager**: finds every `.gguf` on the machine, shows size, quantization and whether it fits your hardware, switches the active model, shows it in your file manager, and deletes it after a confirmation.
 - **Add a model** with a normal file chooser. The file's GGUF header is verified before it is added.
 - **Search**: the list shows three models at a time, with a search box when you have more.
-- **Settings**: context window, GPU or CPU offload, compact KV cache, port, extra `llama-server` arguments, stop-when-idle, start at login, and a one-click Zed config.
+- **Settings**: context windows from 4k to 1M, GPU or CPU offload, compact KV cache, port, extra server arguments (Enter to apply), stop-when-idle, start at login, and one-click Zed and Pi configs.
 - **First-run onboarding** that checks llama.cpp, your graphics, the service and your models, and fixes what it can.
 - **Hardware aware**: NVIDIA, AMD (discrete and APU), Intel (Arc and integrated) or no GPU at all.
 
 ## Requirements
 
 - Omarchy with the Quickshell-based shell.
-- A `llama-server` binary from llama.cpp. If you do not have one, the onboarding copies the right build command for your GPU.
+- A `llama` dispatcher or standalone `llama-server` binary from llama.cpp. If you do not have one, the onboarding copies the llama.app installer command, which auto-detects your GPU.
 - `systemd` user services, `curl`, `bash`.
 
 For GPU stats on NVIDIA you need the driver utilities (`nvidia-smi`, package `nvidia-utils`). AMD and Intel stats are read from `/sys`, so nothing extra is needed.
@@ -99,8 +89,8 @@ Open the panel. If anything is missing you land on the setup screen:
 
 | Step | What it checks | If it is red |
 | --- | --- | --- |
-| llama.cpp server | a `llama-server` binary on this machine | **Copy build command** for your GPU |
-| Graphics | your GPU and whether your build can use it | **Copy rebuild command** |
+| llama.cpp server | a `llama` or `llama-server` binary on this machine | **Copy install command** or **Copy build command** |
+| Graphics | your GPU and whether your build can use it | **Copy install command** or **Copy build command** |
 | Background service | the `omallama` systemd user service | **Install service** |
 | A model | at least one `.gguf`, and an active one | **Add from files**, or **Copy download** for a size that fits your memory |
 | Helper tools | clipboard, notifications, file chooser | **Copy install command** |
@@ -109,15 +99,40 @@ The service file and its settings are generated for you in `~/.config/systemd/us
 
 ## Building llama.cpp
 
-The onboarding copies one of these for you (Arch package names):
+As an alternative to the llama.app installer, build a standalone `llama-server` with the commands below (Arch package names). The server and graphics setup steps offer both **Copy install command** and **Copy build command** when action is needed; the build command matches your detected GPU.
 
-| Hardware | Backend | Build |
-| --- | --- | --- |
-| NVIDIA | CUDA | `cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=native` |
-| AMD, Intel, integrated | Vulkan | `cmake -B build -DGGML_VULKAN=ON` |
-| No GPU | CPU | `cmake -B build` |
+**NVIDIA (CUDA)**
 
-Each is followed by `cmake --build build -j4 --target llama-server`. On other distributions install the same toolchain with your package manager.
+```bash
+sudo pacman -S --needed cuda cmake git
+export NVCC_CCBIN=${NVCC_CCBIN:-/usr/bin/g++-15} PATH=$PATH:/opt/cuda/bin
+git clone --depth 1 https://github.com/ggml-org/llama.cpp ~/llama.cpp
+cd ~/llama.cpp
+cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=native -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4 --target llama-server
+```
+
+**AMD, Intel or integrated graphics (Vulkan)**
+
+```bash
+sudo pacman -S --needed vulkan-headers vulkan-icd-loader shaderc cmake git
+git clone --depth 1 https://github.com/ggml-org/llama.cpp ~/llama.cpp
+cd ~/llama.cpp
+cmake -B build -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4 --target llama-server
+```
+
+**No GPU (CPU only)**
+
+```bash
+sudo pacman -S --needed cmake git
+git clone --depth 1 https://github.com/ggml-org/llama.cpp ~/llama.cpp
+cd ~/llama.cpp
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4 --target llama-server
+```
+
+If `~/llama.cpp` already exists, skip the clone command and use that checkout. On other distributions install the same toolchain with your package manager.
 
 ## Integrated graphics
 
@@ -125,9 +140,17 @@ An integrated GPU has no memory of its own, so Omallama shows **shared memory** 
 
 ## Models
 
-Omallama looks for `.gguf` files in `~/models`, the Hugging Face and LM Studio caches, Downloads, Documents, `/opt`, `/srv`, `/mnt`, `/run/media`, a shallow sweep of your home folder, and anything you add yourself. Vision projector files and non-first shards of split models are skipped.
+Omallama lists cached models by repository and quantization using `llama cli --cache-list`, and starts a selected cache entry with `llama serve -hf owner/repository:quant`. Cache sizes are read from the Hugging Face revision in `refs/main`: snapshot filenames are matched by quantization, symlinks are followed for file sizes, and split shards are summed. `HF_HUB_CACHE`, `HF_HOME` and `XDG_CACHE_HOME` are respected. Missing revisions/files show unknown size; cache file actions remain hidden. With standalone binaries it uses `llama-server --cache-list` and `-hf` instead.
+
+Local `.gguf` files are scanned in `~/models`, LM Studio, Downloads, Documents, `/opt`, `/srv`, `/mnt`, `/run/media`, a shallow sweep of your home folder, and anything you add yourself. Vision projectors and non-first shards are skipped. Local files still start with `-m`.
+
+After updating, run `omarchy restart shell` if the UI still shows old controls: a plugin rescan may retain cached QML/JavaScript. For an existing installation, click Settings → Tools → **Reinstall service** once to enable dispatcher startup and cached selections. Settings are kept and the previous service is backed up. Larger contexts need more memory and must be supported by the model.
 
 Deleting removes the real file from disk after you confirm in the panel. The active model cannot be deleted.
+
+## Use it from Pi
+
+Settings → Tools → **Copy Pi config** copies a provider snippet for the selected model, port and context window. Merge its `providers.omallama` entry into `~/.pi/agent/models.json` (keep other providers), then select it with Pi's `/model`. The dummy API key is for a local unauthenticated server. Tool calling requires a capable model/chat template; add `--jinja` to Extra arguments if needed. The plugin does not modify Pi's files.
 
 ## Use it from Zed
 
@@ -183,7 +206,9 @@ systemctl --user daemon-reload
 npm test
 ```
 
-runs the model tests, the GPU detection tests (fake sysfs trees for Intel, AMD, NVIDIA and no GPU), hostile-path tests for the scanner and settings, and the service removal test. The AMD and Intel paths are tested that way; they have not been run on that hardware yet. Reports from real machines are welcome.
+runs the model tests, GPU detection tests (fake sysfs trees for Intel, AMD, NVIDIA and no GPU), scanner/cache/settings regression tests, and service installation/removal tests. The AMD and Intel paths are tested that way; they have not been run on that hardware yet. Reports from real machines are welcome.
+
+`npm run test:ui` uses Python 3 and Qt's `qmltestrunner` to check the actual port/extra-argument bindings offscreen: drafts survive refreshes and Enter submits them.
 
 After editing QML, `omarchy restart shell` makes the change show reliably.
 
