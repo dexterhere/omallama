@@ -4,8 +4,10 @@
 bin=$(find_bin)
 echo "bin=$bin"
 if [ -n "$bin" ]; then
-  echo "bin_version=$("$bin" --version 2>&1 | grep -i -m1 version | sed 's/^version: *//')"
-  echo "devices=$(timeout 15 "$bin" --list-devices 2>&1 | grep -oE '^ *[A-Za-z]+[0-9]+:' | tr -d ' 0-9:' | tr 'A-Z' 'a-z' | sort -u | tr '\n' ',' | sed 's/,$//')"
+  args=()
+  [ "${bin##*/}" = llama ] && args=(serve)
+  echo "bin_version=$("$bin" "${args[@]}" --version 2>&1 | grep -i -m1 version | sed 's/^version: *//')"
+  echo "devices=$(timeout 15 "$bin" "${args[@]}" --list-devices 2>&1 | grep -oE '^ *[A-Za-z]+[0-9]+:' | tr -d ' 0-9:' | tr 'A-Z' 'a-z' | sort -u | tr '\n' ',' | sed 's/,$//')"
 fi
 detect_gpu
 echo "gpu_kind=$GPU_KIND"; echo "gpu_integrated=$GPU_INT"; echo "gpu_name=$(gpu_name)"

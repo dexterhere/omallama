@@ -1,4 +1,5 @@
 var HISTORY = 60
+var INSTALL_COMMAND = "curl -LsSf https://llama.app/install.sh | sh"
 
 var Glyph = { chip: "\uf2db", power: "\uf011", refresh: "\uf021", check: "\uf00c", trash: "\uf1f8", folder: "\uf07b", folderOpen: "\uf07c", copy: "\uf0c5", gear: "\uf013", paste: "\uf0ea", close: "\uf00d" }
 
@@ -74,7 +75,7 @@ function sourceLabel(path, home) {
   return p.split("/").slice(0, -1).join("/")
 }
 
-// One "bytes|path" line per model, as printed by scan.sh.
+// One "bytes|path" line per model; cached selections use an hf: prefix.
 function parseModels(raw, home) {
   var rows = []
   var lines = String(raw || "").split("\n")
@@ -82,7 +83,7 @@ function parseModels(raw, home) {
     var idx = lines[i].indexOf("|")
     if (idx < 1) continue
     var r = modelRow(lines[i].substring(idx + 1), parseFloat(lines[i].substring(0, idx)))
-    r.source = sourceLabel(r.path, home)
+    r.source = r.cached ? "llama.cpp cache" : sourceLabel(r.path, home)
     r.deletable = r.path.indexOf(home + "/models/") === 0
     rows.push(r)
   }
@@ -92,13 +93,14 @@ function parseModels(raw, home) {
 
 function modelRow(path, bytes) {
   var file = String(path || "").split("/").pop()
+  var cached = String(path).indexOf("hf:") === 0
   var name = file.replace(/\.gguf$/i, "")
-  var q = /(q\d(?:_[a-z0-9]+)+|iq\d(?:_[a-z0-9]+)*|f16|bf16|f32)/i.exec(name)
+  var q = /(q\d(?:_[a-z0-9]+)+|iq\d(?:_[a-z0-9]+)*|mxfp\d+|f16|bf16|f32)/i.exec(name)
   var size = /(\d+(?:\.\d+)?)b(?![a-z])/i.exec(name)
   return {
-    path: path, file: file,
-    name: name.replace(/[-_.]?(q\d(?:_[a-z0-9]+)+|iq\d(?:_[a-z0-9]+)*|f16|bf16|f32)$/i, ""),
-    quant: q ? q[1].toUpperCase() : "",
+    path: path, file: file, cached: cached,
+    name: cached ? String(path).substring(3).split(":")[0] : name.replace(/[-_.:]?(q\d(?:_[a-z0-9]+)+|iq\d(?:_[a-z0-9]+)*|mxfp\d+|f16|bf16|f32)$/i, ""),
+    quant: cached ? (file.split(":")[1] || "").toUpperCase() : q ? q[1].toUpperCase() : "",
     params: size ? size[1] + "B" : "",
     sizeMb: Math.round(bytes / 1048576)
   }
@@ -115,6 +117,7 @@ function fitVerdict(sizeMb, vramTotalMb) {
 
 // Fit of a model on this machine's accelerator: discrete VRAM, half of shared RAM for an iGPU, or CPU only.
 function fitFor(sizeMb, s) {
+  if (!sizeMb) return { text: "Size unknown", level: 0 }
   if (s.gpuKind === "none") return { text: "CPU only", level: 1 }
   if (s.integrated) {
     var v = fitVerdict(sizeMb, s.ramTotalMb / 2)
@@ -138,7 +141,8 @@ function fmtUptime(sec) {
   return Math.floor(s / 3600) + "h " + Math.floor(s % 3600 / 60) + "m"
 }
 
-function ctxLabel(n) { return n >= 1024 ? (n / 1024) + "k" : String(n) }
+var CTX_OPTIONS = [4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576]
+function ctxLabel(n) { return n >= 1048576 ? (n / 1048576) + "M" : n >= 1024 ? (n / 1024) + "k" : String(n) }
 
 function parseDoctor(raw) {
   var o = {}
@@ -223,6 +227,17 @@ function zedConfig(port, alias) {
   } } } }, null, 2)
 }
 
+function piConfig(port, alias, ctx) {
+  return JSON.stringify({ providers: { omallama: {
+    baseUrl: "http://localhost:" + port + "/v1",
+    api: "openai-completions",
+    apiKey: "local",
+    models: [{ id: alias, name: alias + " (local)", reasoning: false, input: ["text"],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: ctx || 8192, maxTokens: Math.min(8192, ctx || 8192) }]
+  } } }, null, 2)
+}
+
 function validPort(v) { var n = parseInt(v, 10); return /^\d+$/.test(String(v)) && n >= 1024 && n <= 65535 }
 
 function push(history, value) {
@@ -242,4 +257,4 @@ function isOn(s) { return s.state === "active" || s.state === "activating" }
 
 function gb(mb) { return mb < 1024 ? Math.round(mb) + " MB" : (mb / 1024).toFixed(1) + " GB" }
 
-if (typeof module !== "undefined") module.exports = { fitFor, gpuHeading, memHeading, gpuText, parseDoctor, EMPTY_DOCTOR, accelerated, needsSetup, deviceSummary, buildCommand, starterModel, missingPackages, activeFirst, filterModels, zedConfig, validPort, parseSample, parseModels, sourceLabel, modelRow, fitVerdict, fmtUptime, ctxLabel, push, statusText, isOn, gb, HISTORY }
+if (typeof module !== "undefined") module.exports = { fitFor, gpuHeading, memHeading, gpuText, parseDoctor, EMPTY_DOCTOR, accelerated, needsSetup, deviceSummary, INSTALL_COMMAND, buildCommand, starterModel, missingPackages, activeFirst, filterModels, zedConfig, piConfig, CTX_OPTIONS, validPort, parseSample, parseModels, sourceLabel, modelRow, fitVerdict, fmtUptime, ctxLabel, push, statusText, isOn, gb, HISTORY }

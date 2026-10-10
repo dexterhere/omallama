@@ -5,6 +5,7 @@
   "description": "Omarchy bar plugin for running and monitoring a local llama.cpp server",
   "license": "MIT",
   "scripts": {
-    "test": "node tests/run.js && bash tests/gpu.test.sh && bash tests/scan.test.sh && bash tests/setup.test.sh"
+    "test": "node tests/run.js && bash tests/gpu.test.sh && bash tests/scan.test.sh && bash tests/setup.test.sh",
+    "test:ui": "python3 tests/ui.test.py"
   }
 }

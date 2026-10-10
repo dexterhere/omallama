@@ -44,7 +44,32 @@ assert.equal(M.needsSetup(Object.assign({}, doc, { bin: "" })), true); assert.eq
 assert.equal(M.accelerated({ gpuKind: "intel", devices: ["vulkan"] }), true); assert.equal(M.accelerated({ gpuKind: "none", devices: [] }), true)
 assert.ok(/no CUDA support/.test(M.deviceSummary(Object.assign({}, doc, { devices: ["cpu"] }))))
 assert.ok(/CUDA$/.test(M.deviceSummary(doc)))
+assert.equal(M.INSTALL_COMMAND, "curl -LsSf https://llama.app/install.sh | sh")
 assert.ok(/GGML_CUDA=ON/.test(M.buildCommand("nvidia"))); assert.ok(/GGML_VULKAN=ON/.test(M.buildCommand("intel"))); assert.ok(!/GGML_/.test(M.buildCommand("none")))
 assert.ok(/7b/.test(M.starterModel(6141).command)); assert.ok(/3b/.test(M.starterModel(4000).command)); assert.ok(/1.5b/.test(M.starterModel(1000).command))
 assert.deepEqual(M.missingPackages(doc.missing), ["wl-clipboard", "python-gobject"])
 console.log("ok7")
+
+const cached = M.parseModels("0|hf:unsloth/model-27B-GGUF:MXFP4\n0|hf:unsloth/model-27B-GGUF:Q4_K_M\n", "/home/u")
+assert.equal(cached[0].name, "unsloth/model-27B-GGUF")
+assert.equal(cached[0].quant, "MXFP4"); assert.equal(cached[0].params, "27B")
+assert.equal(cached[0].cached, true); assert.equal(cached[0].deletable, false)
+assert.equal(cached[0].source, "llama.cpp cache")
+assert.equal(M.filterModels(cached, "unsloth MXFP4").length, 1)
+assert.equal(M.fitFor(0, nv).text, "Size unknown")
+assert.equal(M.activeFirst(cached, cached[1].path)[0].path, cached[1].path)
+assert.equal(M.ctxLabel(1048576), "1M"); assert.equal(M.ctxLabel(524288), "512k")
+assert.deepEqual(M.CTX_OPTIONS, [4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576])
+const pi = JSON.parse(M.piConfig(9090, "model-27B-GGUF:Q4_K_M", 131072)).providers.omallama
+assert.equal(pi.baseUrl, "http://localhost:9090/v1"); assert.equal(pi.api, "openai-completions")
+assert.equal(pi.apiKey, "local"); assert.equal(pi.models[0].id, "model-27B-GGUF:Q4_K_M")
+assert.equal(pi.models[0].contextWindow, 131072); assert.equal(pi.models[0].maxTokens, 8192)
+assert.equal(JSON.parse(M.piConfig(8080, "m", 4096)).providers.omallama.models[0].maxTokens, 4096)
+const gpt = M.parseModels("12897431232|hf:ggml-org/gpt-oss-20b-GGUF:MXFP4\n", "/home/u")[0]
+assert.equal(gpt.name, "ggml-org/gpt-oss-20b-GGUF"); assert.equal(gpt.quant, "MXFP4")
+assert.equal(gpt.sizeMb, Math.round(12897431232 / 1048576))
+for (const file of ["gpt-oss-20b-GGUF:MXFP4", "gpt-oss-20b-MXFP4.gguf"]) {
+  const row = M.modelRow(file, 1048576)
+  assert.equal(row.quant, "MXFP4"); assert.ok(!row.name.endsWith(":")); assert.ok(!row.name.includes("MXFP4"))
+}
+console.log("ok8")
